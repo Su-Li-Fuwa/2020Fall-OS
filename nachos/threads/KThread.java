@@ -1,7 +1,6 @@
 package nachos.threads;
 
 import nachos.machine.*;
-
 /**
  * A KThread is a thread that can be used to execute Nachos kernel code. Nachos
  * allows multiple threads to run concurrently.
@@ -192,8 +191,10 @@ public class KThread {
 	toBeDestroyed = currentThread;
 
 
-	currentThread.status = statusFinished;
-	
+    currentThread.status = statusFinished;
+    if (currentThread.blockedKT != null)
+        currentThread.blockedKT.ready();
+	//System.out.println("***(needed rm)***"+"Finished!"+currentThread.toString()+"\n");
 	sleep();
     }
 
@@ -273,10 +274,15 @@ public class KThread {
      * thread.
      */
     public void join() {
+    Machine.interrupt().disable();
 	Lib.debug(dbgThread, "Joining to thread: " + toString());
-
-	Lib.assertTrue(this != currentThread);
-
+    Lib.assertTrue(this != currentThread);
+    if (this.status != statusFinished){
+        blockedKT = currentThread;
+        currentThread.sleep();
+    }
+    //System.out.println(currentThread);
+    //System.out.println(this);
     }
 
     /**
@@ -341,7 +347,9 @@ public class KThread {
 	currentThread.saveState();
 
 	Lib.debug(dbgThread, "Switching from: " + currentThread.toString()
-		  + " to: " + toString());
+          + " to: " + toString());
+    //System.out.println(currentThread);
+    //System.out.println(this);
 	currentThread = this;
 
 	tcb.contextSwitch();
@@ -387,24 +395,58 @@ public class KThread {
 	
 	public void run() {
 	    for (int i=0; i<5; i++) {
-		System.out.println("*** thread " + which + " looped "
-				   + i + " times");
+		System.out.println("*** thread " + which + " looped "+ i + " times");
 		currentThread.yield();
 	    }
-	}
-
-	private int which;
     }
+    private int which;
+    }
+    
+    private static class SelfForkTest implements Runnable {
+        SelfForkTest(int which, boolean toFork) {
+            this.which = which;
+            this.toFork = toFork;
+            if (toFork){
+                KThread tmp = new KThread(new SelfForkTest(1, false)).setName("self forked thread");
+                //KThread tmp1 = new KThread(new SelfForkTest(2, false)).setName("self forked thread");
+                tmp.fork();
+                tmp.join();
+                //tmp1.fork();
+                //tmp1.join();
+            }
+        }
+        
+        public void run() {
+            for (int i=0; i<5; i++) {
+            System.out.println("*** thread " + which + " looped "
+                       + i + " times");
+            currentThread.yield();
+            }
+        }
 
+    private int which;
+    private boolean toFork;
+    }
+    
     /**
      * Tests whether this module is working.
      */
+    
+    public static void joinTest() {
+    Lib.debug(dbgThread, "Enter KThread.joinTest");
+
+    KThread tmp = new KThread(new SelfForkTest(0, true)).setName("forked thread");
+    tmp.fork();
+    //new PingTest(0).run();
+    }
+    
     public static void selfTest() {
 	Lib.debug(dbgThread, "Enter KThread.selfTest");
 	
     new KThread(new PingTest(1)).setName("forked thread").fork();
     new KThread(new PingTest(0)).setName("forked thread").fork();
-    new KThread(new PingTest(2)).setName("forked thread").fork();
+    KThread tmp = new KThread(new PingTest(10)).setName("forked thread");
+    tmp.fork();
 	//new PingTest(0).run();
     }
 
@@ -433,6 +475,7 @@ public class KThread {
     private Runnable target;
     private TCB tcb;
 
+    private KThread blockedKT = null;
     /**
      * Unique identifer for this thread. Used to deterministically compare
      * threads.
