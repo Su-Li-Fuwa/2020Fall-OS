@@ -1,5 +1,6 @@
 package nachos.threads;
 import nachos.machine.*;
+import nachos.threads.ThreadedKernel;
 public class Test {
     public Test(){};
     private static class PingTest implements Runnable {
@@ -37,6 +38,37 @@ public class Test {
         private boolean toFork;
     }
 
+    private static class alarmT implements Runnable {
+        alarmT(long st) {
+            this.sleepTime = st;
+        }
+        public void run() {
+            startTime = Machine.timer().getTime();
+            ThreadedKernel.alarm.waitUntil(sleepTime);
+            wakeTime = Machine.timer().getTime();
+            System.out.println("Alarm: start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime);
+        }
+        public long startTime;
+        public long sleepTime;
+        public long wakeTime;
+    }
+
+    private static class alarmTjoin extends alarmT {
+        alarmTjoin(long st, long childst) {
+            super(st);
+            this.childst = childst;
+        }
+        public void run() {
+            startTime = Machine.timer().getTime();
+            KThread tmp = new KThread(new alarmT(childst)).setName("child thread");
+            tmp.fork();
+            tmp.join();
+            ThreadedKernel.alarm.waitUntil(sleepTime);
+            wakeTime = Machine.timer().getTime();
+            System.out.println("Alarm: start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime);
+        }
+        private long childst;
+    }
     /**
      * Tests whether this module is working.
      */
@@ -59,10 +91,21 @@ public class Test {
         //new PingTest(0).run();
     }
 
-    public static void condTest(){
-        
+    public static void alarmTest(){
+        Lib.debug(dbgThread, "Enter KThread.selfTest");
+        System.out.println("alarmTest start!");
+        new KThread(new alarmT(130)).setName("forked 1").fork();
+        new KThread(new alarmT(410)).setName("forked 2").fork();
+        new KThread(new alarmT(600)).setName("forked 3").fork();
     }
 
+    public static void alarmJoinTest(){
+        Lib.debug(dbgThread, "Enter KThread.selfTest");
+        System.out.println("alarmTest start!");
+        new KThread(new alarmT(130)).setName("forked 1").fork();
+        new KThread(new alarmTjoin(410, 600)).setName("forked 2").fork();
+        //new KThread(new alarmT(600)).setName("forked 3").fork();
+    }
 
 
     private static final char dbgThread = 't';
