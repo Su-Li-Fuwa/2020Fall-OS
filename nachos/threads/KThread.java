@@ -389,6 +389,9 @@ public class KThread {
 	Lib.assertTrue(this == currentThread);
     }
 
+
+    // Some threads to test
+
     private static class PingTest implements Runnable {
 	PingTest(int which) {
 	    this.which = which;
@@ -425,8 +428,8 @@ public class KThread {
             }
         }
 
-    private int which;
-    private boolean toFork;
+        private int which;
+        private boolean toFork;
     }
     
     /**
