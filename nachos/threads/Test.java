@@ -1,5 +1,6 @@
 package nachos.threads;
 import nachos.machine.*;
+import nachos.threads.Communicator;
 import nachos.threads.ThreadedKernel;
 public class Test {
     public Test(){};
@@ -65,10 +66,50 @@ public class Test {
             tmp.join();
             ThreadedKernel.alarm.waitUntil(sleepTime);
             wakeTime = Machine.timer().getTime();
-            System.out.println("Alarm: start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime);
+            System.out.println("Alarm start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime);
         }
         private long childst;
     }
+
+    private static class listener implements Runnable {
+        listener(long st) {
+            this.sleepTime = st;
+        }
+        public void run() {
+            startTime = Machine.timer().getTime();
+            ThreadedKernel.alarm.waitUntil(sleepTime);
+            wakeTime = Machine.timer().getTime();
+            int word = -1;
+            word = comm.listen();
+            finishedTime = Machine.timer().getTime();
+            System.out.println("Listener start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime+" Word:"+word+" Finished:"+finishedTime);
+        }
+        public long startTime;
+        public long sleepTime;
+        public long wakeTime;
+        public long finishedTime;
+    }
+
+    private static class speaker implements Runnable {
+        speaker(long st, int word) {
+            this.sleepTime = st;
+            this.word = word;
+        }
+        public void run() {
+            startTime = Machine.timer().getTime();
+            ThreadedKernel.alarm.waitUntil(sleepTime);
+            wakeTime = Machine.timer().getTime();
+            comm.speak(word);
+            finishedTime = Machine.timer().getTime();
+            System.out.println("Speaker start: "+startTime+" Sleep:"+sleepTime+" Wake:"+wakeTime+" Word:"+word+" Finished:"+finishedTime);
+        }
+        public long startTime;
+        public long sleepTime;
+        public long wakeTime;
+        public long finishedTime;
+        public int word;
+    }
+
     /**
      * Tests whether this module is working.
      */
@@ -107,6 +148,16 @@ public class Test {
         //new KThread(new alarmT(600)).setName("forked 3").fork();
     }
 
+    public static void communTest(){
+        Lib.debug(dbgThread, "Enter KThread.selfTest");
+        System.out.println("communTest start!");
+        comm = new Communicator();
+        new KThread(new listener(100)).setName("listener 1").fork();
+        new KThread(new listener(100)).setName("listener 2").fork();
+        new KThread(new speaker(100, 60)).setName("speaker 1").fork();
+        new KThread(new speaker(100, 70)).setName("speaker 2").fork();
+    }
 
     private static final char dbgThread = 't';
+    public static Communicator comm;
 }

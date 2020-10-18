@@ -34,6 +34,7 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {
+        boolean intStatus = Machine.interrupt().disable();
         condLock.acquire();
         waitSpeaker += 1;
         while (waitListener == 0)
@@ -44,6 +45,7 @@ public class Communicator {
         waitListener -= 1;
         cond.wakeAll();
         condLock.release();
+        Machine.interrupt().restore(intStatus);
         return;
     }
 
@@ -54,15 +56,19 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
+        boolean intStatus = Machine.interrupt().disable();
         int rWord;
         condLock.acquire();
         waitListener += 1;
-        while (activeSpeaker == 0)
+        while (activeSpeaker == 0){
+            cond.wakeAll();
             cond.sleep();
+        }
         rWord = wordQueue.removeFirst();
         activeSpeaker -= 1;
         cond.wakeAll();
         condLock.release();
+        Machine.interrupt().restore(intStatus);
         return rWord;
     }
 
