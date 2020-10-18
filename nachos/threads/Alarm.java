@@ -18,7 +18,8 @@ public class Alarm {
     public Alarm() {
 	Machine.timer().setInterruptHandler(new Runnable() {
 		public void run() { timerInterrupt(); }
-	    });
+        });
+    toWakeQueue = new LinkedList<KTandTime>();
     }
 
     /**
@@ -27,13 +28,16 @@ public class Alarm {
      * thread to yield, forcing a context switch if there is another thread
      * that should be run.
      */
-    public void timerInterrupt() {
+    public void timerInterrupt() {///Wrong!///
+    //System.out.println("Start!");
     boolean intStatus = Machine.interrupt().disable();
-    for (int i = 0, size = toWakeQueue.size(); i < size; i++) {
+    //System.out.println("Loop Start!");
+    for (int i = 0; i < toWakeQueue.size(); i++) {
+        //System.out.println(i);
+        //System.out.println(toWakeQueue.size());
         if (Machine.timer().getTime() >= toWakeQueue.get(i).wakeTime){
             toWakeQueue.remove(i).th.ready();
             i -= 1;
-            size -= 1;
         }
     }
     Machine.interrupt().restore(intStatus);

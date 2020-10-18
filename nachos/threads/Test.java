@@ -59,6 +59,10 @@ public class Test {
         //new PingTest(0).run();
     }
 
+    public static void condTest(){
+        
+    }
+
 
 
     private static final char dbgThread = 't';
