@@ -261,9 +261,10 @@ public class KThread {
 	Lib.assertTrue(status != statusReady);
 	
 	status = statusReady;
-	if (this != idleThread)
-	    readyQueue.waitForAccess(this);
-	
+	if (this != idleThread){
+        readyQueue.waitForAccess(this);
+        readyQueue.print();
+    }
 	Machine.autoGrader().readyThread(this);
     }
 

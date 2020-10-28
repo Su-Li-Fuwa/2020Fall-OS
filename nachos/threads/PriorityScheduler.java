@@ -189,7 +189,14 @@ public class PriorityScheduler extends Scheduler {
 	}
 	
 	public void print() {
-	    Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(Machine.interrupt().disabled());
+		//System.out.println(srcQueue);
+		//Iterator i = srcQueue.iterator();
+		//KThread tmp;
+		//for(;i.hasNext();){
+		//	tmp = (KThread)i.next(); 
+		//	System.out.println(tmp+" "+getThreadState(tmp).getEffectivePriority()+" "+getThreadState(tmp).priority);
+		//}
 	    // implement me (if you want)
 	}
 
@@ -257,9 +264,13 @@ public class PriorityScheduler extends Scheduler {
 	 * @param	priority	the new priority.
 	 */
 	public void setPriority(int priority) {
+		
 	    if (this.priority == priority)
 			return;
-	    this.priority = priority;
+		this.priority = priority;
+		if (this.effpriority != invalidEff)
+			this.effpriority = priority;
+		//System.out.println("Set "+this.priority+" "+this.thread);
 	    // implement me
 	}
 

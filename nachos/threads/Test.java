@@ -159,6 +159,53 @@ public class Test {
         System.out.println("communTest finished!");
     }
 
+    public static void priorityTest(){
+        Lib.debug(dbgThread, "Enter KThread.selfTest");
+        System.out.println("priorityTset start!");
+
+        boolean status = Machine.interrupt().disable();
+
+        KThread th1 = new KThread(new PingTest(0)).setName("forked thread");
+        ThreadedKernel.scheduler.setPriority(th1, 1);
+
+        KThread th2 = new KThread(new PingTest(1)).setName("forked thread");
+        ThreadedKernel.scheduler.setPriority(th2, 2);
+
+        KThread th3 = new KThread(new PingTest(2)).setName("forked thread");
+        ThreadedKernel.scheduler.setPriority(th3, 3);
+
+        Machine.interrupt().restore(status);
+
+        th1.fork();
+        th2.fork();
+        th3.fork();
+        System.out.println("priorityTest finished!");
+    }
+
+    public static void priorityWithLockTest(){
+        Lib.debug(dbgThread, "Enter KThread.selfTest");
+        System.out.println("priorityWithLockTest start!");
+
+        boolean status = Machine.interrupt().disable();
+
+        KThread th1 = new KThread(new PingTest(0)).setName("forked thread");
+        ThreadedKernel.scheduler.setPriority(th1, 3);
+
+        KThread th2 = new KThread(new PingTest(1)).setName("forked thread");
+        ThreadedKernel.scheduler.setPriority(th2, 1);
+
+        ThreadQueue lockQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+        
+        lockQueue.acquire(th2);
+        lockQueue.waitForAccess(th1);
+
+        Machine.interrupt().restore(status);
+
+        th1.fork();
+        th2.fork();
+        System.out.println("priorityWithLockTest finished!");
+    }
+
     private static final char dbgThread = 't';
     public static Communicator comm;
 }
