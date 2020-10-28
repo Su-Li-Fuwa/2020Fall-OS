@@ -156,6 +156,7 @@ public class Test {
         new KThread(new listener(100)).setName("listener 2").fork();
         new KThread(new speaker(100, 60)).setName("speaker 1").fork();
         new KThread(new speaker(100, 70)).setName("speaker 2").fork();
+        System.out.println("communTest finished!");
     }
 
     private static final char dbgThread = 't';

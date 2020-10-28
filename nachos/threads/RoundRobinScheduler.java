@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import nachos.threads.KThread;
 
 import java.util.LinkedList;
 import java.util.Iterator;

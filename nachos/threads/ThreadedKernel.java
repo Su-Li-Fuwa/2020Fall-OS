@@ -47,7 +47,7 @@ public class ThreadedKernel extends Kernel {
      */	
     public void selfTest() {
     //KThread.selfTest();
-    Test.communTest();
+    Test.alarmJoinTest();
 	Semaphore.selfTest();
 	SynchList.selfTest();
 	if (Machine.bank() != null) {

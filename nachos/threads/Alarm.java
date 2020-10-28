@@ -28,7 +28,7 @@ public class Alarm {
      * thread to yield, forcing a context switch if there is another thread
      * that should be run.
      */
-    public void timerInterrupt() {///Wrong!///
+    public void timerInterrupt() {
     //System.out.println("Start!");
     boolean intStatus = Machine.interrupt().disable();
     //System.out.println("Loop Start!");
