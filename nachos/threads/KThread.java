@@ -26,6 +26,8 @@ import nachos.machine.*;
  * new KThread(p).fork();
  * </pre></blockquote>
  */
+import nachos.threads.ThreadQueue;
+import nachos.threads.ThreadedKernel;
 public class KThread {
     /**
      * Get the current thread.
@@ -42,6 +44,9 @@ public class KThread {
      * create an idle thread as well.
      */
     public KThread() {
+    boolean status = Machine.interrupt().disable();
+    waitForJoin.acquire(this);
+    Machine.interrupt().restore(status);
 	if (currentThread != null) {
 	    tcb = new TCB();
 	}	    
@@ -192,8 +197,8 @@ public class KThread {
 
 
     currentThread.status = statusFinished;
-    if (currentThread.blockedKT != null)
-        currentThread.blockedKT.ready();
+    for (KThread tmpT = currentThread.waitForJoin.nextThread(); tmpT != null; tmpT = currentThread.waitForJoin.nextThread())
+        tmpT.ready();
 	//System.out.println("***(needed rm)***"+"Finished!"+currentThread.toString()+"\n");
 	sleep();
     }
@@ -279,7 +284,7 @@ public class KThread {
 	Lib.debug(dbgThread, "Joining to thread: " + toString());
     Lib.assertTrue(this != currentThread);
     if (this.status != statusFinished){
-        blockedKT = currentThread;
+        waitForJoin.waitForAccess(currentThread);
         currentThread.sleep();
     }
     Machine.interrupt().restore(intStatus);
@@ -480,7 +485,7 @@ public class KThread {
     private Runnable target;
     private TCB tcb;
 
-    private KThread blockedKT = null;
+    public ThreadQueue waitForJoin = ThreadedKernel.scheduler.newThreadQueue(true);
     /**
      * Unique identifer for this thread. Used to deterministically compare
      * threads.

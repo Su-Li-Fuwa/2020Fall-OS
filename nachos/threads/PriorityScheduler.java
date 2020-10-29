@@ -367,7 +367,7 @@ public class PriorityScheduler extends Scheduler {
 
 	public void invalidE(){
 		effpriority = invalidEff;
-		getEffectivePriority();
+		//getEffectivePriority();
 	}
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
