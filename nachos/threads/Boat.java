@@ -1,5 +1,9 @@
 package nachos.threads;
+
+import javax.print.attribute.standard.MediaSize.NA;
+
 import nachos.ag.BoatGrader;
+//import sun.security.ec.point.Point;
 
 public class Boat
 {
@@ -10,7 +14,7 @@ public class Boat
 	BoatGrader b = new BoatGrader();
 	
 	System.out.println("\n ***Testing Boats with only 2 children***");
-	begin(0, 2, b);
+	begin(4, 9, b);
 
 //	System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
 //  	begin(1, 2, b);
@@ -29,48 +33,185 @@ public class Boat
 	
 	// Create threads here. See section 3.4 of the Nachos for Java
 	// Walkthrough linked from the projects page.
+	sharedLock = new Lock();
+	AinM = new Condition2(sharedLock);
+	AinO = new Condition2(sharedLock);
+	CinM = new Condition2(sharedLock);
+	CinO = new Condition2(sharedLock);
+	Pilot = new Condition2(sharedLock);
+	isDone = new Semaphore(0);
+	boatPosition = true;
+	peopleOnBoat = 0;
+	NAinM = 0;
+	NAinO = adults;
+	NCinM = 0;
+	NCinO = children;
 
-	Runnable r = new Runnable() {
-	    public void run() {
-                SampleItinerary();
-            }
-        };
-        KThread t = new KThread(r);
-        t.setName("Sample Boat Thread");
-        t.fork();
+	for (int i = 0; i < adults; i++){
+		KThread Atmp = new KThread(new Runnable(){
+			public void run() {
+				AdultItinerary();
+			}
+		});
+		Atmp.setName("Adult: " + i);
+		Atmp.fork();
+	}
+
+	for (int i = 0; i < children; i++){
+		KThread Ctmp = new KThread(new Runnable(){
+			public void run() {
+				ChildItinerary();
+			}
+		});
+		Ctmp.setName("Child: " + i);
+		Ctmp.fork();
+	}
+	isDone.P();
+
 
     }
 
     static void AdultItinerary()
     {
-	bg.initializeAdult(); //Required for autograder interface. Must be the first thing called.
-	//DO NOT PUT ANYTHING ABOVE THIS LINE. 
-
-	/* This is where you should put your solutions. Make calls
-	   to the BoatGrader to show that it is synchronized. For
-	   example:
-	       bg.AdultRowToMolokai();
-	   indicates that an adult has rowed the boat across to Molokai
-	*/
+	bg.initializeAdult();   // Required for autograder interface. Must be the first thing called.
+	boolean myPosition = true;
+	sharedLock.acquire();	// Short busy waiting for condition lock
+	while(true){
+		//System.out.println("0");
+		if (myPosition){
+			//System.out.println("1");
+			if (!boatPosition){
+				//System.out.println("2");
+				CinM.wakeAll();
+				AinO.sleep();
+			}
+			else{
+				if (peopleOnBoat != 0){
+					CinO.wakeAll();
+					AinO.sleep();
+				}
+				else if (NCinO <= 1){
+					boatPosition = false;
+					peopleOnBoat = 0;
+					myPosition = false;
+					NAinO -= 1;
+					NAinM += 1;
+					bg.AdultRowToMolokai();
+					CinM.wakeAll();
+					AinM.sleep();
+				}
+				else{
+					CinO.wakeAll();
+					AinO.sleep();
+				}
+			}
+		}
+		else{
+			AinM.sleep();
+		}
+	}
+	//sharedLock.release();
     }
 
     static void ChildItinerary()
     {
 	bg.initializeChild(); //Required for autograder interface. Must be the first thing called.
-	//DO NOT PUT ANYTHING ABOVE THIS LINE. 
+	boolean myPosition = true;
+	sharedLock.acquire();	// Short busy waiting for condition lock
+	while(true){
+		if (myPosition){
+			if (!boatPosition){
+				CinM.wakeAll();
+				CinO.sleep();
+			}
+			else{
+				if (peopleOnBoat == 0){
+					if (NCinO <= 1 && NAinO >= 1){
+						AinM.wakeAll();
+						CinO.sleep();
+					}
+					else{
+						peopleOnBoat = 1;
+						CinO.wakeAll();
+						if (NCinO == 1){
+							// Done
+							boatPosition = false;
+							peopleOnBoat = 0;
+							myPosition = false;
+							NCinO -= 1;
+							NCinM += 1;
+							bg.ChildRowToMolokai();
+							isDone.V();
+							CinM.sleep();
+						}
+						else{
+							Pilot.sleep();
+							boatPosition = false;
+							peopleOnBoat = 0;
+							myPosition = false;
+							if (NCinO == 2 && NAinO == 0)
+								isDone.V();
+							NCinO -= 2;
+							NCinM += 2;
+							bg.ChildRowToMolokai();
+							bg.ChildRideToMolokai();
+							CinM.wakeAll();
+							CinM.sleep();
+						}
+					}
+				}
+				else if (peopleOnBoat == 1){
+					peopleOnBoat = 2;
+					Pilot.wakeAll();
+					myPosition = false;
+					CinM.sleep();
+				}
+				else{
+					Pilot.wakeAll();
+					CinO.sleep();
+				}
+			}
+		}
+		else{
+			if (boatPosition){
+				CinO.wakeAll();
+				AinO.wakeAll();
+				CinM.sleep();
+			}
+			else{
+				if (peopleOnBoat == 0){
+					// Something went wrong
+					boatPosition = true;
+					peopleOnBoat = 0;
+					myPosition = true;
+					NCinM -= 1;
+					NCinO += 1;
+					bg.ChildRowToOahu();
+					CinO.wakeAll();
+					AinO.wakeAll();
+					CinO.sleep();
+				}
+				else{
+					CinM.sleep();
+				}
+			}
+		}
+	}
+	//sharedLock.release();
     }
 
     static void SampleItinerary()
     {
-	// Please note that this isn't a valid solution (you can't fit
-	// all of them on the boat). Please also note that you may not
-	// have a single thread calculate a solution and then just play
-	// it back at the autograder -- you will be caught.
-	System.out.println("\n ***Everyone piles on the boat and goes to Molokai***");
-	bg.AdultRowToMolokai();
+	// Please note that this isn't a valid solution (you can't     KThread.sleep();
 	bg.ChildRideToMolokai();
 	bg.AdultRideToMolokai();
 	bg.ChildRideToMolokai();
-    }
-    
+	}
+	// shared variable
+	public static Condition2 AinO, AinM, CinO, CinM, Pilot;
+	public static Lock sharedLock;
+	public static boolean boatPosition;		// true: Oahu  false: Molokai
+	public static int peopleOnBoat;			
+	public static Semaphore isDone;
+	public static int NCinO, NCinM, NAinO, NAinM;
 }
