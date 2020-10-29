@@ -46,9 +46,9 @@ public class ThreadedKernel extends Kernel {
      * autograder never calls this method, so it is safe to put additional
      * tests here.
      */	
+    
     public void selfTest() {
-    //KThread.selfTest();
-    Test.priorityTest();
+    Test.priorityTest3();
 	Semaphore.selfTest();
     SynchList.selfTest();
     Boat.selfTest();
@@ -56,6 +56,7 @@ public class ThreadedKernel extends Kernel {
 	    ElevatorBank.selfTest();
 	}
     }
+    
     
     /**
      * A threaded kernel does not run user programs, so this method does

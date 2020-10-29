@@ -165,21 +165,6 @@ public class PriorityScheduler extends Scheduler {
 	 * @return	the next thread that <tt>nextThread()</tt> would
 	 *		return.
 	 */
-	/*
-	protected ThreadState pickNextThread() {
-		// TASK 1.5
-		KThread result = null;
-		int maxPriority = -1;
-		for (KThread thread : srcQueue)
-			if (result == null
-					|| getEffectivePriority(thread) > maxPriority) {
-				result = thread;
-				maxPriority = getEffectivePriority(thread);
-			}
-		if (result == null)
-			return null;
-		return getThreadState(result);
-	}*/
 	
 	protected ThreadState pickNextThread() {
 		Iterator i = srcQueue.iterator();
@@ -247,47 +232,6 @@ public class PriorityScheduler extends Scheduler {
 	 *
 	 * @return	the effective priority of the associated thread.
 	 */
-	/*
-	public int getEffectivePriority() {
-		return getEffectivePriority(new HashSet<ThreadState>());
-	}
-	
-	private int getEffectivePriority(HashSet<ThreadState> set) {
-		if (effpriority != invalidEff)
-			return effpriority;
-		
-		if (set.contains(this)) {
-//				System.err.println("Deadlock");
-			return priority;
-		}
-
-		effpriority = priority;
-
-		for (PriorityQueue queue : waitingQueueSet)
-			if (queue.transferPriority)
-				for (KThread thread : queue.srcQueue) {
-					set.add(this);
-					int p = getThreadState(thread)
-							.getEffectivePriority(set);
-					set.remove(this);
-					if (p > effpriority)
-						effpriority = p;
-				}
-		
-		PriorityQueue queue = (PriorityQueue) thread.waitForJoin;
-		if (queue.transferPriority)
-			for (KThread thread : queue.srcQueue) {
-				set.add(this);
-				int p = getThreadState(thread)
-						.getEffectivePriority(set);
-				set.remove(this);
-				if (p > effpriority)
-					effpriority = p;
-			}
-
-		return effpriority;
-	}
-	*/
 	
 	public int getEffectivePriority() {
 		Lib.assertTrue(Machine.interrupt().disabled());
@@ -359,7 +303,6 @@ public class PriorityScheduler extends Scheduler {
 	public void acquire(PriorityQueue waitQueue) {
 		waitQueue.srcQueue.remove(this.thread);
 		waitQueue.srcThd = this;
-		//if (waitQueue.transferPriority){
 		this.waitingQueueSet.add(waitQueue);
 		this.invalidE();
 		//}
@@ -367,7 +310,6 @@ public class PriorityScheduler extends Scheduler {
 
 	public void invalidE(){
 		effpriority = invalidEff;
-		//getEffectivePriority();
 	}
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;

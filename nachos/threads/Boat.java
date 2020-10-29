@@ -14,7 +14,7 @@ public class Boat
 	BoatGrader b = new BoatGrader();
 	
 	System.out.println("\n ***Testing Boats with only 2 children***");
-	begin(4, 9, b);
+	begin(5, 7, b);
 
 //	System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
 //  	begin(1, 2, b);
@@ -39,7 +39,8 @@ public class Boat
 	CinM = new Condition2(sharedLock);
 	CinO = new Condition2(sharedLock);
 	Pilot = new Condition2(sharedLock);
-	isDone = new Semaphore(0);
+	isDoneS = new Semaphore(0);
+	//isDone = false;
 	boatPosition = true;
 	peopleOnBoat = 0;
 	NAinM = 0;
@@ -66,7 +67,7 @@ public class Boat
 		Ctmp.setName("Child: " + i);
 		Ctmp.fork();
 	}
-	isDone.P();
+	isDoneS.P();
 
 
     }
@@ -127,7 +128,7 @@ public class Boat
 			else{
 				if (peopleOnBoat == 0){
 					if (NCinO <= 1 && NAinO >= 1){
-						AinM.wakeAll();
+						AinO.wakeAll();
 						CinO.sleep();
 					}
 					else{
@@ -141,7 +142,8 @@ public class Boat
 							NCinO -= 1;
 							NCinM += 1;
 							bg.ChildRowToMolokai();
-							isDone.V();
+							isDoneS.V();
+							//isDone = true;
 							CinM.sleep();
 						}
 						else{
@@ -149,14 +151,19 @@ public class Boat
 							boatPosition = false;
 							peopleOnBoat = 0;
 							myPosition = false;
-							if (NCinO == 2 && NAinO == 0)
-								isDone.V();
 							NCinO -= 2;
 							NCinM += 2;
 							bg.ChildRowToMolokai();
 							bg.ChildRideToMolokai();
-							CinM.wakeAll();
-							CinM.sleep();
+							if (NCinO == 0 && NAinO == 0){
+								isDoneS.V();
+								//isDone = true;
+								CinM.sleep();
+							}
+							else{
+								CinM.wakeAll();
+								CinM.sleep();
+							}
 						}
 					}
 				}
@@ -187,6 +194,7 @@ public class Boat
 					NCinM -= 1;
 					NCinO += 1;
 					bg.ChildRowToOahu();
+					//bg.ChildRowToMolokai();
 					CinO.wakeAll();
 					AinO.wakeAll();
 					CinO.sleep();
@@ -212,6 +220,7 @@ public class Boat
 	public static Lock sharedLock;
 	public static boolean boatPosition;		// true: Oahu  false: Molokai
 	public static int peopleOnBoat;			
-	public static Semaphore isDone;
+	public static Semaphore isDoneS;
+	//public static boolean isDone = false;
 	public static int NCinO, NCinM, NAinO, NAinM;
 }
