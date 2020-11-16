@@ -5,7 +5,6 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
-
 /**
  * Encapsulates the state of a user process that is not contained in its
  * user thread (or threads). This includes its address translation state, a
@@ -24,7 +23,8 @@ public class UserProcess {
      */
     public UserProcess() {
 	int numPhysPages = Machine.processor().getNumPhysPages();
-	pageTable = new TranslationEntry[numPhysPages];
+    pageTable = new TranslationEntry[numPhysPages];
+    descriptorClass = new DescriptorClass();
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
@@ -339,16 +339,198 @@ public class UserProcess {
      * Handle the halt() system call. 
      */
     private int handleHalt() {
-
-	Machine.halt();
-	
+    if (this == UserKernel.root){
+        Machine.halt();
+        return 0;
+    }
 	Lib.assertNotReached("Machine.halt() did not halt machine!");
-	return 0;
+	return -1;
     }
 
+    private int handleCreate(int fileAddr) {
+        String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
+
+        if (name == null) {
+			//Lib.debug(dbgProcess, "Invalid file name pointer");
+			return -1;
+		}
+        /*
+		if (deleted.contains(fileName)) {
+			Lib.debug(dbgProcess, "File is being deleted");
+			return -1;
+        }*/
+        
+        OpenFile file = ThreadedKernel.fileSystem.open(name, true);
+        return descriptorClass.add(file);
+    }
+
+    private int handleOpen(int fileAddr) {
+        String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
+
+        if (name == null) {
+			//Lib.debug(dbgProcess, "Invalid file name pointer");
+			return -1;
+		}
+        /*
+		if (deleted.contains(fileName)) {
+			Lib.debug(dbgProcess, "File is being deleted");
+			return -1;
+        }*/
+        
+        OpenFile file = ThreadedKernel.fileSystem.open(name, false);
+
+        if (file == null) {
+			//Lib.debug(dbgProcess, "Invalid file name pointer");
+			return -1;
+        }
+        
+        return descriptorClass.add(file);
+    }
+
+    protected int handleRead(int descriptor, int bAddr, int len) {
+		OpenFile file = descriptorClass.get(descriptor);
+
+		if (file == null) {
+			return -1;
+		}
+        /*
+		if (!(buffer >= 0 && count >= 0)) {
+			return -1;
+		}*/
+
+		byte tmp[] = new byte[len];
+		int readOut = file.read(tmp, 0, len);
+
+		if (readOut == -1) {
+			return -1;
+		}
+
+		int writeIn = writeVirtualMemory(bAddr, tmp, 0, readOut);
+
+		return writeIn;
+    }
+    
+    protected int handleWrite(int descriptor, int bAddr, int len) {
+		OpenFile file = descriptorClass.get(descriptor);
+
+		if (file == null) {
+			return -1;
+		}
+        /*
+		if (!(buffer >= 0 && count >= 0)) {
+			Lib.debug(dbgProcess, "buffer and count should bigger then zero");
+			return -1;
+		}*/
+
+        byte tmp[] = new byte[len];
+
+		int readOut = readVirtualMemory(bAddr, tmp, 0, len);
+
+        if (readOut == -1) {
+			return -1;
+        }
+        
+		int writeIn = file.write(tmp, 0, readOut);
+
+		return writeIn;
+    }
+    
+    protected int handleClose(int descriptor) {
+		return descriptorClass.close(descriptor);
+	}
+
+    protected int handleUnlink(int fileAddr) {
+		String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
+
+		if (name == null) {
+			return -1;
+		}
+        /*
+		if (files.containsKey(fileName)) {
+			deleted.add(fileName);
+		}
+		else {
+			if (!UserKernel.fileSystem.remove(fileName))
+				return -1;
+		}
+
+        return 0;*/
+        if(ThreadedKernel.fileSystem.remove(name))
+            return 0;
+        return -1;
+	}
+
+    public class DescriptorClass {
+		public DescriptorClass(){
+            descriSet = new OpenFile[maxDescriptorNum];
+        }
+        /*
+		public int add(int index, OpenFile file) {
+			if (index < 0 || index >= maxFileDescriptorNum)
+				return -1;
+
+			if (descriptor[index] == null) {
+				descriptor[index] = file;
+				if (files.get(file.getName()) != null) {
+					files.put(file.getName(), files.get(file.getName()) + 1);
+				}
+				else {
+					files.put(file.getName(), 1);
+				}
+				return index;
+			}
+
+			return -1;
+		}*/
+
+		public int add(OpenFile file) {
+			for (int i = 0; i < maxDescriptorNum; i++)
+				if (descriSet[i] == null){
+                    //return add(i, file);
+                    descriSet[i] = file;
+                    return i;
+                }
+
+			return -1;
+		}
+
+		public int close(int descriptor) {
+			if (descriSet[descriptor] == null) {
+				//Lib.debug(dbgProcess, "file descriptor " + fileDescriptor
+				//		+ " doesn't exist");
+				return -1;
+			}
+
+			OpenFile file = descriSet[descriptor];
+			descriSet[descriptor] = null;
+			file.close();
+            /*
+			String fileName = file.getName();
+
+			if (files.get(fileName) > 1)
+				files.put(fileName, files.get(fileName) - 1);
+			else {
+				files.remove(fileName);
+				if (deleted.contains(fileName)) {
+					deleted.remove(fileName);
+					UserKernel.fileSystem.remove(fileName);
+				}
+			}
+            */
+			return 0;
+		}
+
+		public OpenFile get(int descriptor) {
+			if (descriptor < 0 || descriptor >= maxDescriptorNum)
+				return null;
+			return descriSet[descriptor];
+        }
+
+        private OpenFile descriSet[];
+	}
 
     private static final int
-        syscallHalt = 0,
+    syscallHalt = 0,
 	syscallExit = 1,
 	syscallExec = 2,
 	syscallJoin = 3,
@@ -391,7 +573,8 @@ public class UserProcess {
 	switch (syscall) {
 	case syscallHalt:
 	    return handleHalt();
-
+    case syscallCreate:
+        return handleCreate();
 
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -441,9 +624,13 @@ public class UserProcess {
     /** The number of pages in the program's stack. */
     protected final int stackPages = 8;
     
+    protected final int maxDescriptorNum = 16;
+    protected final int maxFilenameLen = 256;
+
     private int initialPC, initialSP;
     private int argc, argv;
-	
+    
+    private DescriptorClass descriptorClass;
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
 }

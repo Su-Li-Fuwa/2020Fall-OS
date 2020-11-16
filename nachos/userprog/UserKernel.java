@@ -93,7 +93,7 @@ public class UserKernel extends ThreadedKernel {
 	super.run();
 
 	UserProcess process = UserProcess.newUserProcess();
-	
+	root = process;
 	String shellProgram = Machine.getShellProgramName();	
 	Lib.assertTrue(process.execute(shellProgram, new String[] { }));
 
@@ -109,7 +109,7 @@ public class UserKernel extends ThreadedKernel {
 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
-
+    public static UserProcess root = null;
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
 }
