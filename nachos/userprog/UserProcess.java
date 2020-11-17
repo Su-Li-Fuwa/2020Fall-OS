@@ -5,6 +5,8 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.LinkedList;
+
 /**
  * Encapsulates the state of a user process that is not contained in its
  * user thread (or threads). This includes its address translation state, a
@@ -29,8 +31,14 @@ public class UserProcess {
     descriptorClass.add(UserKernel.console.openForWriting());
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
-    }
     
+    pid = nextPid;
+    nextPid += 1;
+    activeProcess += 1;
+    childProcess = new LinkedList<UserProcess>();
+    isDone = new Semaphore(0);
+    status = -1;
+    }
     /**
      * Allocate and return a new process of the correct class. The class name
      * is specified by the <tt>nachos.conf</tt> key
@@ -483,6 +491,72 @@ public class UserProcess {
         if(ThreadedKernel.fileSystem.remove(name))
             return 0;
         return -1;
+    }
+    
+    protected int handleExec(int fileAddr, int argNum, int argAddr) {
+        String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
+        if(name==null || argNum < 0 || argAddr < 0 || argAddr > numPages*pageSize || !name.endsWith(".coff"))
+            return -1;
+        String[] args = new String[argNum];
+        byte[] tmp = new byte[4];
+
+        for (int i = 0, readOut; i < argNum; i++) {
+			readOut = readVirtualMemory(argAddr + i * 4, tmp);
+			if (readOut != 4)	return -1;
+			args[i] = readVirtualMemoryString(Lib.bytesToInt(tmp, 0), maxFilenameLen);
+			if (args[i] == null)    return -1;
+        }
+        
+        UserProcess cProcess = new UserProcess();
+        cProcess.parentProcess = this;
+        this.childProcess.add(cProcess);
+
+        if (!cProcess.execute(name, args))  return -1;
+        
+        return cProcess.pid;
+    }
+    
+    protected int handleJoin(int pid, int statusAddr) {
+        UserProcess joinedProcess = null;
+        for (int i = 0; i < childProcess.size(); i++)
+            if (pid == childProcess.get(i).pid)
+            {
+               joinedProcess = childProcess.get(i);
+               break;
+            }
+        if (joinedProcess == null)  return -1;
+
+		joinedProcess.isDone.P();
+
+		writeVirtualMemory(statusAddr, Lib.bytesFromInt(joinedProcess.status));
+
+		if (joinedProcess.normalExit)
+			return 1;
+		else
+			return 0;
+    }
+    
+    protected int handleExit(int status) {
+        coff.close();
+
+		this.status = status;
+		
+		for (int i = 2; i < maxDescriptorNum; i++)
+			descriptorClass.close(i);
+
+		//allProcesses.remove(PID);
+        //diedProcesses.put(PID, this);
+        if(parentProcess != null) parentProcess.childProcess.remove(this);
+        unloadSections();
+		isDone.V();
+
+        activeProcess -= 1;
+		if (activeProcess == 0)
+			Kernel.kernel.terminate();
+
+		UThread.finish();
+
+		return 0;
 	}
 
     public class DescriptorClass {
@@ -610,10 +684,19 @@ public class UserProcess {
         return handleClose(a0);
     case syscallUnlink:
         return handleUnlink(a0);
-
-	default:
+    case syscallExec:
+        return handleExec(a0, a1, a2);
+    case syscallJoin:
+        return handleJoin(a0, a1);
+    case syscallExit:
+        return handleExit(a0);
+    
+    default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-	    Lib.assertNotReached("Unknown system call!");
+        Lib.assertNotReached("Unknown system call!");
+        normalExit = false;
+        handleExit(-1);
+        //return -1;
 	}
 	return 0;
     }
@@ -647,10 +730,14 @@ public class UserProcess {
 	    Lib.assertNotReached("Unexpected exception");
 	}
     }
-
+    public UserProcess parentProcess = null;
+    public int pid;
+    public int status;
+    public Semaphore isDone;
+    public LinkedList<UserProcess> childProcess;
     /** The program being run by this process. */
     protected Coff coff;
-
+    protected boolean normalExit = true;
     /** This process's page table. */
     protected TranslationEntry[] pageTable;
     /** The number of contiguous pages occupied by the program. */
@@ -664,8 +751,13 @@ public class UserProcess {
 
     private int initialPC, initialSP;
     private int argc, argv;
-    
     private DescriptorClass descriptorClass;
+    
+    
+    
+
+    private static int nextPid = 0;
+    private static int activeProcess = 0;
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
 }
