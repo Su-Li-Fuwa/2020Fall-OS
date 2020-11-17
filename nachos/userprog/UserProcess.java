@@ -25,6 +25,8 @@ public class UserProcess {
 	int numPhysPages = Machine.processor().getNumPhysPages();
     pageTable = new TranslationEntry[numPhysPages];
     descriptorClass = new DescriptorClass();
+    DescriptorClass.add(UserKernel.console.openForReading());
+    DescriptorClass.add(UserKernel.console.openForWriting());
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
@@ -129,18 +131,25 @@ public class UserProcess {
      */
     public int readVirtualMemory(int vaddr, byte[] data, int offset,
 				 int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+    byte[] memory = Machine.processor().getMemory(); 
+    
+    length = (length > (pageSize*numPages - vaddr)) ? pageSize*numPages - vaddr : length;
+    length = (data.length - offset < length) ? data.length - offset : length;
 
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
+    int transferred = 0;
+    do{
+        int pNum = Processor.pageFromAddress(vaddr + transferred), pOffset = Processor.offsetFromAddress(vaddr + transferred);;
+        /*if (pageNum<0 || pageNum>=pageTable.length)
+            return 0; */
+        int leftByte = pageSize-pOffset;
+        int amount = (leftByte < length - transferred) ? leftByte : (length - transferred);
+        int pAddr = pageTable[pNum].ppn*pageSize + pOffset;
+        System.arraycopy(memory, pAddr, data, offset + transferred, amount);
+        transferred += amount;
+    }while(transferred < length);
 
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(memory, vaddr, data, offset, amount);
-
-	return amount;
+    return transferred;
     }
 
     /**
@@ -172,18 +181,25 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset,
 				  int length) {
-	Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
+    Lib.assertTrue(offset >= 0 && length >= 0 && offset + length <= data.length);
+    byte[] memory = Machine.processor().getMemory(); 
+    
+    length = (length > (pageSize*numPages - vaddr)) ? pageSize*numPages - vaddr : length;
+    length = (data.length - offset < length) ? data.length - offset : length;
 
-	byte[] memory = Machine.processor().getMemory();
-	
-	// for now, just assume that virtual addresses equal physical addresses
-	if (vaddr < 0 || vaddr >= memory.length)
-	    return 0;
+    int transferred = 0;
+    do{
+        int pNum = Processor.pageFromAddress(vaddr + transferred), pOffset = Processor.offsetFromAddress(vaddr + transferred);;
+        /*if (pageNum<0 || pageNum>=pageTable.length)
+            return 0; */
+        int leftByte = pageSize-pOffset;
+        int amount = (leftByte < length - transferred) ? leftByte : (length - transferred);
+        int pAddr = pageTable[pNum].ppn*pageSize + pOffset;
+        System.arraycopy(data, offset + transferred, memory, pAddr, amount);
+        transferred += amount;
+    }while(transferred < length);
 
-	int amount = Math.min(length, memory.length-vaddr);
-	System.arraycopy(data, offset, memory, vaddr, amount);
-
-	return amount;
+    return transferred;
     }
 
     /**
@@ -282,11 +298,15 @@ public class UserProcess {
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
     protected boolean loadSections() {
-	if (numPages > Machine.processor().getNumPhysPages()) {
+    
+    int [] idx = UserKernel.allocatePP(numPages);
+    if (idx == null) {
+        // No enough free pages
 	    coff.close();
-	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
-	    return false;
-	}
+        return false;
+    }
+
+    pageTable = new TranslationEntry[numPages];
 
 	// load sections
 	for (int s=0; s<coff.getNumSections(); s++) {
@@ -296,13 +316,18 @@ public class UserProcess {
 		      + " section (" + section.getLength() + " pages)");
 
 	    for (int i=0; i<section.getLength(); i++) {
-		int vpn = section.getFirstVPN()+i;
-
-		// for now, just assume virtual addresses=physical addresses
-		section.loadPage(i, vpn);
+		    int vpn = section.getFirstVPN()+i;
+            int ppn = idx[vpn];
+            pageTable[vpn] = new TranslationEntry(vpn, ppn, true, section.isReadOnly(), false, false);
+		    // for now, just assume virtual addresses=physical addresses
+		    section.loadPage(i, ppn);
 	    }
-	}
-	
+    }
+    // allocate free pages for stack and argv
+    /*
+	for (int i = numPages - stackPages - 1; i < numPages; i++) 
+		pageTable[i] = new TranslationEntry(i, ppns[i], true, false, false, false);
+	*/
 	return true;
     }
 

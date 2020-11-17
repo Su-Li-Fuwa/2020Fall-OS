@@ -4,6 +4,8 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.LinkedList;
+
 /**
  * A kernel that can support multiple user processes.
  */
@@ -26,7 +28,12 @@ public class UserKernel extends ThreadedKernel {
 	
 	Machine.processor().setExceptionHandler(new Runnable() {
 		public void run() { exceptionHandler(); }
-	    });
+        });
+    
+    physicalMemLock = new Lock();
+    freePP = new LinkedList<Integer>();
+    for (int i = 0; i < Machine.processor().getNumPhysPages(); i++)
+		freePP.add(i);
     }
 
     /**
@@ -107,9 +114,35 @@ public class UserKernel extends ThreadedKernel {
 	super.terminate();
     }
 
+    public static int[] allocatePP(int pPSize) {
+		physicalMemLock.acquire();
+
+		if (freePP.size() < pPSize) {
+			physicalMemLock.release();
+			return null;
+		}
+		int[] idx = new int[pPSize];
+		for (int i = 0; i < pPSize; i++)
+            idx[i] = freePP.remove();
+            
+		physicalMemLock.release();
+		return idx;
+	}
+
+	public static void releasePP(int[] pPNumber) {
+        physicalMemLock.acquire();
+        
+        for (int i = 0; i < pPNumber.length; i++)
+            freePP.add(pPNumber[i]);
+            
+		physicalMemLock.release();
+	}
+
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
     public static UserProcess root = null;
     // dummy variables to make javac smarter
+    public static LinkedList<Integer> freePP;
+    private static Lock physicalMemLock;
     private static Coff dummy1 = null;
 }
