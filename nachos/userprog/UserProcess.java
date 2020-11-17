@@ -25,8 +25,8 @@ public class UserProcess {
 	int numPhysPages = Machine.processor().getNumPhysPages();
     pageTable = new TranslationEntry[numPhysPages];
     descriptorClass = new DescriptorClass();
-    DescriptorClass.add(UserKernel.console.openForReading());
-    DescriptorClass.add(UserKernel.console.openForWriting());
+    descriptorClass.add(UserKernel.console.openForReading());
+    descriptorClass.add(UserKernel.console.openForWriting());
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
     }
