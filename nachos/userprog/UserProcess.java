@@ -24,6 +24,7 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
+    //System.out.println(nextPid);
 	int numPhysPages = Machine.processor().getNumPhysPages();
     pageTable = new TranslationEntry[numPhysPages];
     descriptorClass = new DescriptorClass();
@@ -61,9 +62,9 @@ public class UserProcess {
     public boolean execute(String name, String[] args) {
 	if (!load(name, args))
 	    return false;
-	
+    //System.out.println("!!!");
 	new UThread(this).setName(name).fork();
-
+    //System.out.println("???");
 	return true;
     }
 
@@ -332,10 +333,10 @@ public class UserProcess {
 	    }
     }
     // allocate free pages for stack and argv
-    /*
+    
 	for (int i = numPages - stackPages - 1; i < numPages; i++) 
-		pageTable[i] = new TranslationEntry(i, ppns[i], true, false, false, false);
-	*/
+		pageTable[i] = new TranslationEntry(i, idx[i], true, false, false, false);
+	
 	return true;
     }
 
@@ -343,6 +344,10 @@ public class UserProcess {
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
+        coff.close();
+		for (int i = 0; i < numPages; i++)
+			UserKernel.releasePP(pageTable[i].ppn);
+		pageTable = null;
     }    
 
     /**
@@ -537,7 +542,6 @@ public class UserProcess {
     }
     
     protected int handleExit(int status) {
-        coff.close();
 
 		this.status = status;
 		
@@ -669,9 +673,10 @@ public class UserProcess {
      * @return	the value to be returned to the user.
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
+    //System.out.println("AAAAAAAAAAAAAA");
 	switch (syscall) {
 	case syscallHalt:
-	    return handleHalt();
+        return handleHalt();
     case syscallCreate:
         return handleCreate(a0);
     case syscallOpen:
@@ -690,7 +695,6 @@ public class UserProcess {
         return handleJoin(a0, a1);
     case syscallExit:
         return handleExit(a0);
-    
     default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
         Lib.assertNotReached("Unknown system call!");

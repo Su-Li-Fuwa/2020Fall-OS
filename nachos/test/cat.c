@@ -11,16 +11,17 @@ int main(int argc, char** argv)
   int fd, amount;
 
   if (argc!=2) {
+    printf("%d\n",argc);
     printf("Usage: cat <file>\n");
     return 1;
   }
 
   fd = open(argv[1]);
+  
   if (fd==-1) {
     printf("Unable to open %s\n", argv[1]);
     return 1;
   }
-
   while ((amount = read(fd, buf, BUFSIZE))>0) {
     write(1, buf, amount);
   }

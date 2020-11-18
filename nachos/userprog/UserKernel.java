@@ -99,11 +99,14 @@ public class UserKernel extends ThreadedKernel {
     public void run() {
 	super.run();
 
-	UserProcess process = UserProcess.newUserProcess();
-	root = process;
-	String shellProgram = Machine.getShellProgramName();	
+    UserProcess process = UserProcess.newUserProcess();
+    //System.out.println("!!!");
+    root = process;
+    //System.out.println("???");
+    String shellProgram = Machine.getShellProgramName();	
+    //System.out.println("!!!");
 	Lib.assertTrue(process.execute(shellProgram, new String[] { }));
-
+    //System.out.println("???");
 	KThread.currentThread().finish();
     }
 
@@ -129,12 +132,12 @@ public class UserKernel extends ThreadedKernel {
 		return idx;
 	}
 
-	public static void releasePP(int[] pPNumber) {
+	public static void releasePP(int pPNumber) {
         physicalMemLock.acquire();
         
-        for (int i = 0; i < pPNumber.length; i++)
-            freePP.add(pPNumber[i]);
-            
+        //for (int i = 0; i < pPNumber.length; i++)
+        freePP.add(pPNumber);
+
 		physicalMemLock.release();
 	}
 
