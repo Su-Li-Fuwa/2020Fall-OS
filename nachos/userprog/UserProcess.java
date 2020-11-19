@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.Hashtable;
 import java.util.LinkedList;
 
 /**
@@ -324,7 +325,7 @@ public class UserProcess {
 	    Lib.debug(dbgProcess, "\tinitializing " + section.getName()
 		      + " section (" + section.getLength() + " pages)");
 
-	    for (int i=0; i<section.getLength(); i++) {
+	    for (int i = 0; i < section.getLength(); i++) {
 		    int vpn = section.getFirstVPN()+i;
             int ppn = idx[vpn];
             pageTable[vpn] = new TranslationEntry(vpn, ppn, true, section.isReadOnly(), false, false);
@@ -379,7 +380,10 @@ public class UserProcess {
     private int handleHalt() {
     if (this == UserKernel.root){
         Machine.halt();
-        return 0;
+    }
+    else{
+        // Ignore halt and return
+        return -1;
     }
 	Lib.assertNotReached("Machine.halt() did not halt machine!");
 	return -1;
@@ -388,32 +392,24 @@ public class UserProcess {
     private int handleCreate(int fileAddr) {
         String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
 
-        if (name == null) {
-			//Lib.debug(dbgProcess, "Invalid file name pointer");
-			return -1;
-		}
-        /*
-		if (deleted.contains(fileName)) {
-			Lib.debug(dbgProcess, "File is being deleted");
-			return -1;
-        }*/
+        if (name == null) return -1;
+        
+        if (fileToRm.contains(name)) return -1;
         
         OpenFile file = ThreadedKernel.fileSystem.open(name, true);
+
+        if (file == null) {
+			return -1;
+		}
         return descriptorClass.add(file);
     }
 
     private int handleOpen(int fileAddr) {
         String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
 
-        if (name == null) {
-			//Lib.debug(dbgProcess, "Invalid file name pointer");
-			return -1;
-		}
-        /*
-		if (deleted.contains(fileName)) {
-			Lib.debug(dbgProcess, "File is being deleted");
-			return -1;
-        }*/
+        if (name == null) return -1;
+        
+        if (fileToRm.contains(name)) return -1;
         
         OpenFile file = ThreadedKernel.fileSystem.open(name, false);
 
@@ -430,11 +426,11 @@ public class UserProcess {
 
 		if (file == null) {
 			return -1;
-		}
-        /*
-		if (!(buffer >= 0 && count >= 0)) {
+        }
+        
+		if (bAddr < 0 || len < 0) {
 			return -1;
-		}*/
+		}
 
 		byte tmp[] = new byte[len];
 		int readOut = file.read(tmp, 0, len);
@@ -453,12 +449,11 @@ public class UserProcess {
 
 		if (file == null) {
 			return -1;
-		}
-        /*
-		if (!(buffer >= 0 && count >= 0)) {
-			Lib.debug(dbgProcess, "buffer and count should bigger then zero");
+        }
+        
+        if (bAddr < 0 || len < 0) {
 			return -1;
-		}*/
+		}
 
         byte tmp[] = new byte[len];
 
@@ -480,20 +475,10 @@ public class UserProcess {
     protected int handleUnlink(int fileAddr) {
 		String name = readVirtualMemoryString(fileAddr, maxFilenameLen);
 
-		if (name == null) {
-			return -1;
-		}
-        /*
-		if (files.containsKey(fileName)) {
-			deleted.add(fileName);
-		}
-		else {
-			if (!UserKernel.fileSystem.remove(fileName))
-				return -1;
-		}
-
-        return 0;*/
-        if(ThreadedKernel.fileSystem.remove(name))
+		if (name == null) return -1;
+        
+		if (filesAndNum.containsKey(name)) fileToRm.add(name);
+		else if(ThreadedKernel.fileSystem.remove(name))
             return 0;
         return -1;
     }
@@ -523,6 +508,8 @@ public class UserProcess {
     
     protected int handleJoin(int pid, int statusAddr) {
         UserProcess joinedProcess = null;
+        // is child?
+        if (!this.childProcess.contains(pid)) return -1;
         for (int i = 0; i < childProcess.size(); i++)
             if (pid == childProcess.get(i).pid)
             {
@@ -531,6 +518,7 @@ public class UserProcess {
             }
         if (joinedProcess == null)  return -1;
 
+        // Wait for child finished
 		joinedProcess.isDone.P();
 
 		writeVirtualMemory(statusAddr, Lib.bytesFromInt(joinedProcess.status));
@@ -548,8 +536,6 @@ public class UserProcess {
 		for (int i = 2; i < maxDescriptorNum; i++)
 			descriptorClass.close(i);
 
-		//allProcesses.remove(PID);
-        //diedProcesses.put(PID, this);
         if(parentProcess != null) parentProcess.childProcess.remove(this);
         unloadSections();
 		isDone.V();
@@ -567,30 +553,19 @@ public class UserProcess {
 		public DescriptorClass(){
             descriSet = new OpenFile[maxDescriptorNum];
         }
-        /*
-		public int add(int index, OpenFile file) {
-			if (index < 0 || index >= maxFileDescriptorNum)
-				return -1;
-
-			if (descriptor[index] == null) {
-				descriptor[index] = file;
-				if (files.get(file.getName()) != null) {
-					files.put(file.getName(), files.get(file.getName()) + 1);
-				}
-				else {
-					files.put(file.getName(), 1);
-				}
-				return index;
-			}
-
-			return -1;
-		}*/
 
 		public int add(OpenFile file) {
 			for (int i = 0; i < maxDescriptorNum; i++)
 				if (descriSet[i] == null){
                     //return add(i, file);
                     descriSet[i] = file;
+                    if (filesAndNum.get(file.getName()) != null) {
+                        // File is already in the table
+                        filesAndNum.put(file.getName(), filesAndNum.get(file.getName())+1);
+                    }
+                    else {
+                        filesAndNum.put(file.getName(), 1);
+                    }
                     return i;
                 }
 
@@ -598,34 +573,28 @@ public class UserProcess {
 		}
 
 		public int close(int descriptor) {
-			if (descriSet[descriptor] == null) {
-				//Lib.debug(dbgProcess, "file descriptor " + fileDescriptor
-				//		+ " doesn't exist");
-				return -1;
-			}
+			if (descriSet[descriptor] == null) return -1;
 
 			OpenFile file = descriSet[descriptor];
 			descriSet[descriptor] = null;
 			file.close();
-            /*
-			String fileName = file.getName();
 
-			if (files.get(fileName) > 1)
-				files.put(fileName, files.get(fileName) - 1);
+			if (filesAndNum.get(file.getName()) > 1)
+				filesAndNum.put(file.getName(), filesAndNum.get(file.getName()) - 1);
 			else {
-				files.remove(fileName);
-				if (deleted.contains(fileName)) {
-					deleted.remove(fileName);
-					UserKernel.fileSystem.remove(fileName);
+                filesAndNum.remove(file.getName());
+                // Delte it in this stage
+				if (fileToRm.contains(file.getName())) {
+					fileToRm.remove(file.getName());
+					ThreadedKernel.fileSystem.remove(file.getName());
 				}
 			}
-            */
+            
 			return 0;
 		}
 
 		public OpenFile get(int descriptor) {
-			if (descriptor < 0 || descriptor >= maxDescriptorNum)
-				return null;
+			if (descriptor < 0 || descriptor >= maxDescriptorNum)   return null;
 			return descriSet[descriptor];
         }
 
@@ -696,8 +665,6 @@ public class UserProcess {
     case syscallExit:
         return handleExit(a0);
     default:
-	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-        Lib.assertNotReached("Unknown system call!");
         normalExit = false;
         handleExit(-1);
         //return -1;
@@ -739,6 +706,8 @@ public class UserProcess {
     public int status;
     public Semaphore isDone;
     public LinkedList<UserProcess> childProcess;
+    public static LinkedList<String> fileToRm = new LinkedList<String>();
+    protected static Hashtable<String, Integer> filesAndNum = new Hashtable<String, Integer>();
     /** The program being run by this process. */
     protected Coff coff;
     protected boolean normalExit = true;
