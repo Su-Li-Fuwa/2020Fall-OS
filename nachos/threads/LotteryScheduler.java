@@ -31,9 +31,52 @@ public class LotteryScheduler extends PriorityScheduler {
     /**
      * Allocate a new lottery scheduler.
      */
+
+    public static final int priorityDefault = 1;
+    public static final int priorityMinimum = 1;
+    public static final int priorityMaximum = Integer.MAX_VALUE;
+    
     public LotteryScheduler() {
     }
     
+    @Override
+    public void setPriority(KThread thread, int priority) {
+        Lib.assertTrue(Machine.interrupt().disabled());
+                   
+        Lib.assertTrue(priority >= priorityMinimum && priority <= priorityMaximum);
+        
+        getThreadState(thread).setPriority(priority);
+        }
+    @Override
+    public boolean increasePriority() {
+        boolean intStatus = Machine.interrupt().disable();
+                   
+        KThread thread = KThread.currentThread();
+    
+        int priority = getPriority(thread);
+        if (priority == priorityMaximum)
+            return false;
+    
+        setPriority(thread, priority+1);
+    
+        Machine.interrupt().restore(intStatus);
+        return true;
+        }
+    @Override
+    public boolean decreasePriority() {
+        boolean intStatus = Machine.interrupt().disable();
+                   
+        KThread thread = KThread.currentThread();
+    
+        int priority = getPriority(thread);
+        if (priority == priorityMinimum)
+            return false;
+    
+        setPriority(thread, priority-1);
+    
+        Machine.interrupt().restore(intStatus);
+        return true;
+        }
     @Override
 	protected LotteryThreadState getThreadState(KThread thread) {
 		if (thread.schedulingState == null)
@@ -88,7 +131,7 @@ public class LotteryScheduler extends PriorityScheduler {
 			Lib.assertNotReached();
 			return null;
         }
-        public static final int maxPriority = Integer.MAX_VALUE;
+
     }
     
     protected class LotteryThreadState extends PriorityScheduler.ThreadState {

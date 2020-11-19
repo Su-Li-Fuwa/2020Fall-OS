@@ -135,7 +135,6 @@ public class UserKernel extends ThreadedKernel {
 	public static void releasePP(int pPNumber) {
         physicalMemLock.acquire();
         
-        //for (int i = 0; i < pPNumber.length; i++)
         freePP.add(pPNumber);
 
 		physicalMemLock.release();

@@ -509,7 +509,6 @@ public class UserProcess {
     protected int handleJoin(int pid, int statusAddr) {
         UserProcess joinedProcess = null;
         // is child?
-        if (!this.childProcess.contains(pid)) return -1;
         for (int i = 0; i < childProcess.size(); i++)
             if (pid == childProcess.get(i).pid)
             {
