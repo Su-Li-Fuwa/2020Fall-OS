@@ -115,8 +115,8 @@ public class KThread {
      * @return	the full name given to this thread.
      */
     public String toString() {
-    // *** return (name + " (#" + id + ")");
-    return "";
+    return (name + " (#" + id + ")");
+    //return "";
     }
 
     /**

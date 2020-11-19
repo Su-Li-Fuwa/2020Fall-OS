@@ -256,13 +256,13 @@ public class Test {
         boolean status = Machine.interrupt().disable();
 
         KThread th1 = new KThread(new PingTest(0)).setName("forked thread");
-        ThreadedKernel.scheduler.setPriority(th1, 1);
+        ThreadedKernel.scheduler.setPriority(th1, 2);
 
         KThread th2 = new KThread(new PingTest(1)).setName("forked thread");
-        ThreadedKernel.scheduler.setPriority(th2, 0);
+        ThreadedKernel.scheduler.setPriority(th2, 1);
 
         KThread th3 = new KThread(new PingTest(2)).setName("forked thread");
-        ThreadedKernel.scheduler.setPriority(th3, 1);
+        ThreadedKernel.scheduler.setPriority(th3, 2);
 
         Machine.interrupt().restore(status);
 
