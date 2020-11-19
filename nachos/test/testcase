@@ -1,0 +1,2 @@
+1. halt not by root:
+    %nachos: exec halt.coff 

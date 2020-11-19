@@ -8,6 +8,7 @@ char buf[BUFSIZE];
 
 int main(int argc, char** argv)
 {
+
   int src, dst, amount;
 
   if (argc!=3) {
